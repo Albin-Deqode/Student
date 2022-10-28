@@ -1,18 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { CACHE_MANAGER, Inject, Injectable } from '@nestjs/common';
+import { Cache } from 'cache-manager';
+import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { json } from 'stream/consumers';
 import { StudentDto } from './dto';
 
 @Injectable()
 export class StudentService {
-    constructor(private prisma: PrismaService){}
+    constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache ,private prisma: PrismaService){}
+    // constructor( ){}
     toJson(data) {
         return JSON.stringify(data, (_, v) => typeof v === 'bigint' ? v.toString() : v);
     }
    
    async createUser(dto:StudentDto){
       try{
-    //   console.log(dto);
+    //   console.log(dto)
+        
         const student = await this.prisma.student.create({
             data:{
                 name: dto.name,
@@ -26,33 +30,31 @@ export class StudentService {
 
         })
     
-        return student.id
+        return this.toJson(student)
       }
       catch(e){
         console.log(e);
         return e;
       }
     }
-   async showAll(){
+   async show(dto){
     try{
-      const student = await this.prisma.student.findMany({})
-      return this.toJson(student)
-    } catch(e){
-        console.log(e);
-        return e;
-      }
-   }
-   async showOne(id){
-    try{
-      const student = await this.prisma.student.findUnique({
+    // console.log(id);
+  //  / // console.log(dto);
+  await this.cacheManager.set("cached-item",{key:dto.id},3600);
+  // console.log(await this.cacheManager.get("cached-item"));
+      const student = await this.prisma.student.findMany({
         where:{
-          id
+          id:dto.id
         }
       })
+        
       return this.toJson(student)
+    
     }
     catch(e){
       console.log(e);
+      return e;   
     }
    }
    async updateUser(id,dto){
@@ -80,29 +82,28 @@ export class StudentService {
       },
       data: updatedStudent
     })
-    return student.id
+    return this.toJson(student)
   }
     catch(e){
       console.log(e);
+      return e;
     }
    }
-   async deleteUser(id){
-    try{const student = await this.prisma.student.delete({
+ 
+  
+ async delete(id){
+ try {
+    const student = await this.prisma.student.deleteMany({
       where:{
         id
       }
     })
-    return {msg:"Deleted User"}}
-    catch(e){
-      console.log(e);
-    }
-  }
- async deleteAllUser(){
- try {const student = await this.prisma.student.deleteMany({})
-  return {msg:"Successfully Deleted all the Students "}
+  return student 
 
-  } catch(e){
+
+} catch(e){
     console.log(e);
+    return e;
   }
   
   }
